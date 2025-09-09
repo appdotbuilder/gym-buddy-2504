@@ -1,15 +1,32 @@
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type User } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const getAllMembers = async (): Promise<User[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all users with 'member' role.
-    // Admin-only functionality for viewing and managing gym members.
-    return Promise.resolve([]);
+  try {
+    const members = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.role, 'member'))
+      .execute();
+    
+    return members;
+  } catch (error) {
+    console.error('Failed to fetch members:', error);
+    throw error;
+  }
 };
 
 export const getUserById = async (userId: number): Promise<User | null> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching a specific user by their ID.
-    // Used for user profile information and authentication verification.
-    return Promise.resolve(null);
+  try {
+    const users = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .execute();
+    
+    return users.length > 0 ? users[0] : null;
+  } catch (error) {
+    console.error('Failed to fetch user by ID:', error);
+    throw error;
+  }
 };

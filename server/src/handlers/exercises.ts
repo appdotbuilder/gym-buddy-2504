@@ -1,3 +1,5 @@
+import { db } from '../db';
+import { exercisesTable, muscleGroupsTable } from '../db/schema';
 import { 
     type CreateExerciseInput, 
     type Exercise,
@@ -5,38 +7,108 @@ import {
     type GetExercisesByMuscleGroupInput,
     type DeleteInput 
 } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const createExercise = async (input: CreateExerciseInput): Promise<Exercise> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new exercise in the database.
-    // Admin-only functionality for adding exercises to muscle groups.
-    return Promise.resolve({
-        id: 1,
-        name: input.name,
-        muscle_group_id: input.muscle_group_id,
-        description: input.description,
-        gif_url: input.gif_url,
-        created_at: new Date()
-    } as Exercise);
+    try {
+        // Verify muscle group exists
+        const muscleGroup = await db.select()
+            .from(muscleGroupsTable)
+            .where(eq(muscleGroupsTable.id, input.muscle_group_id))
+            .execute();
+        
+        if (muscleGroup.length === 0) {
+            throw new Error(`Muscle group with id ${input.muscle_group_id} not found`);
+        }
+
+        // Insert exercise record
+        const result = await db.insert(exercisesTable)
+            .values({
+                name: input.name,
+                muscle_group_id: input.muscle_group_id,
+                description: input.description,
+                gif_url: input.gif_url
+            })
+            .returning()
+            .execute();
+
+        return result[0];
+    } catch (error) {
+        console.error('Exercise creation failed:', error);
+        throw error;
+    }
 };
 
 export const getAllExercises = async (): Promise<ExerciseWithMuscleGroup[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all exercises with their muscle group information.
-    // Used by members to view exercise tutorials and by admins for management.
-    return Promise.resolve([]);
+    try {
+        const results = await db.select()
+            .from(exercisesTable)
+            .innerJoin(muscleGroupsTable, eq(exercisesTable.muscle_group_id, muscleGroupsTable.id))
+            .execute();
+
+        return results.map(result => ({
+            id: result.exercises.id,
+            name: result.exercises.name,
+            muscle_group_id: result.exercises.muscle_group_id,
+            description: result.exercises.description,
+            gif_url: result.exercises.gif_url,
+            created_at: result.exercises.created_at,
+            muscle_group: {
+                id: result.muscle_groups.id,
+                name: result.muscle_groups.name,
+                description: result.muscle_groups.description,
+                created_at: result.muscle_groups.created_at
+            }
+        }));
+    } catch (error) {
+        console.error('Get all exercises failed:', error);
+        throw error;
+    }
 };
 
 export const getExercisesByMuscleGroup = async (input: GetExercisesByMuscleGroupInput): Promise<Exercise[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching exercises filtered by muscle group.
-    // Used by members to view exercises for specific muscle groups.
-    return Promise.resolve([]);
+    try {
+        // Verify muscle group exists
+        const muscleGroup = await db.select()
+            .from(muscleGroupsTable)
+            .where(eq(muscleGroupsTable.id, input.muscle_group_id))
+            .execute();
+        
+        if (muscleGroup.length === 0) {
+            throw new Error(`Muscle group with id ${input.muscle_group_id} not found`);
+        }
+
+        const results = await db.select()
+            .from(exercisesTable)
+            .where(eq(exercisesTable.muscle_group_id, input.muscle_group_id))
+            .execute();
+
+        return results;
+    } catch (error) {
+        console.error('Get exercises by muscle group failed:', error);
+        throw error;
+    }
 };
 
 export const deleteExercise = async (input: DeleteInput): Promise<{ success: boolean }> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is deleting an exercise from the database.
-    // Admin-only functionality for removing exercises.
-    return Promise.resolve({ success: true });
+    try {
+        // Check if exercise exists
+        const existingExercise = await db.select()
+            .from(exercisesTable)
+            .where(eq(exercisesTable.id, input.id))
+            .execute();
+        
+        if (existingExercise.length === 0) {
+            throw new Error(`Exercise with id ${input.id} not found`);
+        }
+
+        await db.delete(exercisesTable)
+            .where(eq(exercisesTable.id, input.id))
+            .execute();
+
+        return { success: true };
+    } catch (error) {
+        console.error('Exercise deletion failed:', error);
+        throw error;
+    }
 };

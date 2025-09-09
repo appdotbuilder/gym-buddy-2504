@@ -1,31 +1,65 @@
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type LoginInput, type User, type CreateUserInput } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const login = async (input: LoginInput): Promise<User> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is authenticating a user with email and password.
-    // Should verify credentials against the database and return user data if valid.
-    return Promise.resolve({
-        id: 1,
-        email: input.email,
-        password_hash: 'placeholder',
-        name: 'Placeholder User',
-        role: 'member' as const,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as User);
+  try {
+    // Find user by email
+    const users = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.email, input.email))
+      .execute();
+
+    if (users.length === 0) {
+      throw new Error('Invalid email or password');
+    }
+
+    const user = users[0];
+
+    // Verify password using Bun's built-in password verification
+    const isValidPassword = await Bun.password.verify(input.password, user.password_hash);
+    
+    if (!isValidPassword) {
+      throw new Error('Invalid email or password');
+    }
+
+    return user;
+  } catch (error) {
+    console.error('Login failed:', error);
+    throw error;
+  }
 };
 
 export const createUser = async (input: CreateUserInput): Promise<User> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new user account with hashed password.
-    // Should hash the password and store the user in the database.
-    return Promise.resolve({
-        id: 1,
+  try {
+    // Check if user with email already exists
+    const existingUsers = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.email, input.email))
+      .execute();
+
+    if (existingUsers.length > 0) {
+      throw new Error('User with this email already exists');
+    }
+
+    // Hash password using Bun's built-in password hashing
+    const password_hash = await Bun.password.hash(input.password);
+
+    // Create new user
+    const result = await db.insert(usersTable)
+      .values({
         email: input.email,
-        password_hash: 'hashed_password_placeholder',
+        password_hash,
         name: input.name,
-        role: input.role,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as User);
+        role: input.role
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('User creation failed:', error);
+    throw error;
+  }
 };

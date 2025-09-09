@@ -5,6 +5,9 @@ import {
     type SearchFoodItemsInput,
     type DeleteInput 
 } from '../schema';
+import { db } from '../db';
+import { foodItemsTable } from '../db/schema';
+import { ilike } from 'drizzle-orm';
 
 export const createFoodItem = async (input: CreateFoodItemInput): Promise<FoodItem> => {
     // This is a placeholder declaration! Real code should be implemented here.
@@ -28,10 +31,20 @@ export const getAllFoodItems = async (): Promise<FoodItem[]> => {
 };
 
 export const searchFoodItems = async (input: SearchFoodItemsInput): Promise<FoodItem[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is searching food items by name using the query string.
-    // Should perform case-insensitive search on food item names.
-    return Promise.resolve([]);
+    try {
+        // Perform case-insensitive search on food item names (trim whitespace)
+        const searchQuery = input.query.trim();
+        const results = await db.select()
+            .from(foodItemsTable)
+            .where(ilike(foodItemsTable.name, `%${searchQuery}%`))
+            .execute();
+
+        // Return results as-is since real columns should already be numbers
+        return results;
+    } catch (error) {
+        console.error('Food items search failed:', error);
+        throw error;
+    }
 };
 
 export const updateFoodItem = async (input: UpdateFoodItemInput): Promise<FoodItem> => {
